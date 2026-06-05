@@ -6,44 +6,65 @@
 #include <stdlib.h>
 
 // shadery napisane GLSL do skompilowania w trakcie(dlatego są w cudzysłowiach)
-
-// vertex shader odpowiada za pozycję
 const char *vertexShaderSource =
     "#version 330 core\n"
-    "\n"
-    "layout(location = 0) in vec3 aPos;\n"
-    "\n"
+    "layout (location = 0) in vec3 aPos;\n"
+    "uniform mat4 model;\n"
+    "uniform mat4 view;\n"
+    "uniform mat4 projection;\n"
+    "out vec3 FragPos;\n"
+    "out vec3 Normal;\n"
     "void main()\n"
     "{\n"
-    "    gl_Position = vec4(aPos, 1.0);\n"
+    "    FragPos = vec3(model * vec4(aPos, 1.0));\n"
+    "    Normal = normalize(aPos);\n"
+    "    gl_Position = projection * view * vec4(FragPos, 1.0);\n"
     "}\n";
 
-// fragment shader odpowiada za kolory
 const char *fragmentShaderSource =
     "#version 330 core\n"
-    "\n"
+    "in vec3 FragPos;\n"
+    "in vec3 Normal;\n"
+    "uniform vec3 lightPos;\n"
+    "uniform vec3 viewPos;\n"
+    "uniform vec3 lightColor;\n"
+    "uniform vec3 objectColor;\n"
     "out vec4 FragColor;\n"
-    "\n"
     "void main()\n"
     "{\n"
-    "    FragColor = vec4(1.0, 0.0, 0.0, 1.0);\n"
+    "    float ambientStrength = 0.1;\n"
+    "    vec3 ambient = ambientStrength * lightColor;\n"
+    "    vec3 lightDir = normalize(lightPos - FragPos);\n"
+    "    float diff = max(dot(Normal, lightDir), 0.0);\n"
+    "    vec3 diffuse = diff * lightColor;\n"
+    "    float specularStrength = 0.5;\n"
+    "    vec3 viewDir = normalize(viewPos - FragPos);\n"
+    "    vec3 reflectDir = reflect(-lightDir, Normal);\n"
+    "    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);\n"
+    "    vec3 specular = specularStrength * spec * lightColor;\n"
+    "    vec3 result = (ambient + diffuse + specular) * objectColor;\n"
+    "    FragColor = vec4(result, 1.0);\n"
     "}\n";
-
-void DrawCirc(GLfloat *verticies, GLuint *indicies, float r, GLfloat x, GLfloat y);
+void DrawSphere(GLfloat *vertices, GLuint *indices, float r,
+                GLfloat x, GLfloat y, GLfloat z,
+                int stacks, int slices);
 int main()
 {
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    float r = 0.3;
-    GLuint v_num = r * 12 * 360 * 3 + 3;
-    GLuint i_num = r * 12 * 360 * 3;
+    float r = 0.4f;
+    int stacks = 32;
+    int slices = 32;
+
+    GLuint v_num = (stacks + 1) * (slices + 1) * 3;
+    GLuint i_num = stacks * slices * 6;
 
     GLfloat *verticies = malloc(sizeof(GLfloat) * v_num);
-    GLuint *indices = malloc(sizeof(GLuint) * i_num);
+    GLuint *indicies = malloc(sizeof(GLuint) * i_num);
 
-    DrawCirc(verticies, indices, r, 0.0f, 0.0f);
+    DrawSphere(verticies, indicies, r, 0.0f, 0.0f, 0.0f, stacks, slices);
 
     GLFWwindow *window = glfwCreateWindow(800, 800, "my app", NULL, NULL);
     if (window == NULL)
@@ -68,6 +89,7 @@ int main()
     glAttachShader(shader_program, vertex_shader);
     glAttachShader(shader_program, fragment_shader);
     glLinkProgram(shader_program);
+
     glDeleteShader(vertex_shader);
     glDeleteShader(fragment_shader);
 
@@ -81,7 +103,7 @@ int main()
     glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * v_num, verticies, GL_STATIC_DRAW);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * i_num, indices,
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * i_num, indicies,
                  GL_STATIC_DRAW);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (void *)0);
@@ -95,10 +117,21 @@ int main()
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
-        glClearColor(0.0f, 0.3f, 0.9f, 1.0f);
+        glClearColor(0.1f, 0.3f, 0.2f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
         glUseProgram(shader_program);
-
+        float identity[16] = {
+            1, 0, 0, 0,
+            0, 1, 0, 0,
+            0, 0, 1, 0,
+            0, 0, 0, 1};
+        glUniformMatrix4fv(glGetUniformLocation(shader_program, "model"), 1, GL_FALSE, identity);
+        glUniformMatrix4fv(glGetUniformLocation(shader_program, "view"), 1, GL_FALSE, identity);
+        glUniformMatrix4fv(glGetUniformLocation(shader_program, "projection"), 1, GL_FALSE, identity);
+        glUniform3f(glGetUniformLocation(shader_program, "lightPos"), 1.2f, 1.0f, 2.0f);
+        glUniform3f(glGetUniformLocation(shader_program, "viewPos"), 0.0f, 0.0f, 3.0f);
+        glUniform3f(glGetUniformLocation(shader_program, "lightColor"), 1.0f, 1.0f, 1.0f);
+        glUniform3f(glGetUniformLocation(shader_program, "objectColor"), 0.2f, 0.5f, 1.0f);
         glBindVertexArray(VAO);
 
         glDrawElements(GL_TRIANGLES, i_num, GL_UNSIGNED_INT, 0);
@@ -113,13 +146,14 @@ int main()
     glfwDestroyWindow(window);
     glfwTerminate();
 }
+
 void DrawCirc(GLfloat *verticies, GLuint *indicies, float r, GLfloat x, GLfloat y)
 {
     verticies[0] = x;
     verticies[1] = y;
     verticies[2] = 0.0f;
 
-    for (int i = 0; i < (int)(360 * 12 * r); i++)
+    for (int i = 0; i <= (int)(360 * 12 * r); i++)
     {
         GLuint idx = 3 * i;
         float angle = M_PI * i / 180;
@@ -131,5 +165,50 @@ void DrawCirc(GLfloat *verticies, GLuint *indicies, float r, GLfloat x, GLfloat 
         indicies[idx] = 0;
         indicies[idx + 1] = i + 1;
         indicies[idx + 2] = i + 2;
+    }
+}
+
+void DrawSphere(GLfloat *vertices, GLuint *indices, float r,
+                GLfloat x, GLfloat y, GLfloat z,
+                int stacks, int slices)
+{
+    int vidx = 0;
+    int iidx = 0;
+
+    for (int i = 0; i <= slices; i++)
+    {
+        float alpha = (float)i * M_PI / slices;
+        float sa = sinf(alpha);
+        float ca = cosf(alpha);
+
+        for (int j = 0; j <= stacks; j++)
+        {
+            float beta = (float)j * 2.0f * M_PI / stacks;
+            float sb = sinf(beta);
+            float cb = cosf(beta);
+
+            vertices[vidx++] = r * sa * cb + x;
+            vertices[vidx++] = r * ca + y;
+            vertices[vidx++] = r * sa * sb + z;
+        }
+    }
+
+    for (int i = 0; i < slices; i++)
+    {
+        for (int j = 0; j < stacks; j++)
+        {
+            int A = i * (stacks + 1) + j;
+            int B = i * (stacks + 1) + j + 1;
+            int C = (i + 1) * (stacks + 1) + j;
+            int D = (i + 1) * (stacks + 1) + j + 1;
+
+            indices[iidx++] = A;
+            indices[iidx++] = B;
+            indices[iidx++] = C;
+
+            indices[iidx++] = B;
+            indices[iidx++] = D;
+            indices[iidx++] = C;
+        }
     }
 }
