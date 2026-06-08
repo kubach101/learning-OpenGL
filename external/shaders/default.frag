@@ -6,6 +6,6 @@ void main()
 {
 vec3 n = normalize(cross(dFdx(vPos), dFdy(vPos)));
 float diff = max(dot(n, uLDir), 0.0);
-vec3 c = vec3(1.0, 0.0, 1.0);
+vec3 c = vec3(0.0, 0.6, 1.0);
 FragColor = vec4(c*diff, 1.0);
 }

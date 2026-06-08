@@ -9,6 +9,11 @@
 #define SHADER_IMPLEMENTATION
 #include "myShader.h"
 
+typedef struct
+{
+    vec3 pos;
+} body;
+
 void DrawSphere(GLfloat *vertices, GLuint *indices, float r,
                 GLfloat x, GLfloat y, GLfloat z,
                 int stacks, int slices);
@@ -20,92 +25,26 @@ int main()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    // float r = 0.4f;
-    // int stacks = 32;
-    // int slices = 32;
+    float r = 0.2f;
+    int stacks = 16;
+    int slices = 16;
 
-    // GLuint v_num = (stacks + 1) * (slices + 1) * 3;
-    // GLuint i_num = stacks * slices * 6;
+    GLuint v_num = (stacks + 1) * (slices + 1) * 3;
+    GLuint i_num = stacks * slices * 6;
 
-    // GLfloat *verticies = malloc(sizeof(GLfloat) * v_num);
-    // GLuint *indicies = malloc(sizeof(GLuint) * i_num);
+    GLfloat *verticies = malloc(sizeof(GLfloat) * v_num);
+    GLuint *indicies = malloc(sizeof(GLuint) * i_num);
 
-    // DrawSphere(verticies, indicies, r, 0.0f, 0.0f, 0.0f, stacks, slices);
+    body spheres[8] = {{{0.3f, 0.3f, 0.3f}},
+                       {{-0.3f, 0.3f, 0.3f}},
+                       {{0.3f, -0.3f, 0.3f}},
+                       {{-0.3f, -0.3f, 0.3f}},
+                       {{0.3f, 0.3f, -0.3f}},
+                       {{-0.3f, 0.3f, -0.3f}},
+                       {{0.3f, -0.3f, -0.3f}},
+                       {{-0.3f, -0.3f, -0.3f}}};
 
-    GLfloat verticies[8 * 3] = {
-        // tył
-        -0.5f, // lewy dół - 0
-        -0.5f,
-        -0.5f,
-        0.5f, // prawy dół - 1
-        -0.5f,
-        -0.5f,
-        -0.5f, // lewa góra - 2
-        0.5f,
-        -0.5f,
-        0.5f, // prawa gora - 3
-        0.5f,
-        -0.5f,
-        // przód
-        -0.5f, // lewy dół - 4
-        -0.5f,
-        0.5f,
-        0.5f, // prawy dół - 5
-        -0.5f,
-        0.5f,
-        -0.5f, // lewa góra - 6
-        0.5f,
-        0.5f,
-        0.5f, // prawa gora - 7
-        0.5f,
-        0.5f,
-    };
-
-    GLuint indicies[] = {
-        // tył
-        0,
-        1,
-        2,
-        1,
-        2,
-        3,
-        // przód
-        4,
-        5,
-        6,
-        5,
-        6,
-        7,
-        // góra
-        2,
-        3,
-        6,
-        3,
-        6,
-        7,
-        // dół
-        0,
-        1,
-        5,
-        0,
-        4,
-        5,
-        // lewy
-        0,
-        2,
-        4,
-        2,
-        4,
-        6,
-        // prawy
-        1,
-        3,
-        5,
-        5,
-        7,
-        3,
-
-    };
+    DrawSphere(verticies, indicies, r, 0.0f, 0.0f, 0.0f, stacks, slices);
 
     GLFWwindow *window = glfwCreateWindow(800, 800, "my app", NULL, NULL);
     if (window == NULL)
@@ -137,10 +76,10 @@ int main()
     glBindVertexArray(VAO);
 
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * 8 * 3, verticies, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * v_num, verticies, GL_STATIC_DRAW);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * 6 * 6, indicies, GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * i_num, indicies, GL_STATIC_DRAW);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (void *)0);
     glEnableVertexAttribArray(0);
@@ -159,37 +98,42 @@ int main()
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         float angle = (float)glfwGetTime();
 
-        mat4 model, view, proj, mvp;
+        for (int i = 0; i < 8; i++)
+        {
+            mat4 model, view, proj, mvp;
+            glm_mat4_identity(model);
+            glm_rotate(model, angle, (vec3){1.0f, 1.0f, 1.0f});
+            glm_translate(model, spheres[i].pos);
+            glm_rotate(model, angle, (vec3){1.0f, 1.0f, 1.0f});
+            glm_lookat(
+                (vec3){0.0f, 0.0f, 2.5f},
+                (vec3){0.0f, 0.0f, 0.0f},
+                (vec3){0.0f, 1.0f, 0.0f},
+                view);
 
-        glm_mat4_identity(model);
-        glm_rotate(model, angle, (vec3){1.0f, 1.0f, 1.0f});
+            glm_perspective(
+                glm_rad(45.0f),
+                800.0f / 800.0f,
+                0.1f, 100.0f,
+                proj);
 
-        glm_lookat(
-            (vec3){0.0f, 0.0f, 3.0f},
-            (vec3){0.0f, 0.0f, 0.0f},
-            (vec3){0.0f, 1.0f, 0.0f},
-            view);
+            mat4 temp;
+            glm_mat4_mul(proj, view, temp);
+            glm_mat4_mul(temp, model, mvp);
 
-        glm_perspective(
-            glm_rad(45.0f),
-            800.0f / 800.0f,
-            0.1f, 100.0f,
-            proj);
+            vec3 light_dir = {-1.0f, -1.0f, 1.0f};
+            glm_vec3_normalize(light_dir);
+            shader_use(&myShader);
+            shader_set_mat4(&myShader, "uMVP", (float *)mvp);
+            shader_set_mat4(&myShader, "uModel", (float *)model);
+            shader_set_vec3(&myShader, "uLDir", (float *)light_dir);
+            shader_set_float(&myShader, "uTime", (float)glfwGetTime());
 
-        mat4 temp;
-        glm_mat4_mul(proj, view, temp);
-        glm_mat4_mul(temp, model, mvp);
-
-        vec3 light_dir = {-1.0f, -1.0f, 1.0f};
-        glm_vec3_normalize(light_dir);
-        shader_use(&myShader);
-        shader_set_mat4(&myShader, "uMVP", (float *)mvp);
-        shader_set_mat4(&myShader, "uModel", (float *)model);
-        shader_set_vec3(&myShader, "uLDir", (float *)light_dir);
-        shader_set_float(&myShader, "uTime", (float)glfwGetTime());
-
+            glBindVertexArray(VAO);
+            glDrawElements(GL_TRIANGLES, i_num, GL_UNSIGNED_INT, 0);
+        }
         glBindVertexArray(VAO);
-        glDrawElements(GL_TRIANGLES, 6 * 6, GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_TRIANGLES, i_num, GL_UNSIGNED_INT, 0);
 
         glfwSwapBuffers(window);
     }
