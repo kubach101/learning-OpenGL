@@ -94,46 +94,44 @@ int main()
     {
         glfwPollEvents();
 
-        glClearColor(0.54, 0.17, 0.89, 1.0f);
+        glClearColor(0.54f, 0.17f, 0.89f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
         float angle = (float)glfwGetTime();
+
+        mat4 view, proj, view_proj;
+        glm_lookat(
+            (vec3){0.0f, 0.0f, 2.5f},
+            (vec3){0.0f, 0.0f, 0.0f},
+            (vec3){0.0f, 1.0f, 0.0f},
+            view);
+        glm_perspective(glm_rad(45.0f), 800.0f / 800.0f, 0.1f, 100.0f, proj);
+        glm_mat4_mul(proj, view, view_proj);
+
+        vec3 light_dir = {-1.0f, -1.0f, 1.0f};
+        glm_vec3_normalize(light_dir);
+
+        shader_use(&myShader);
+        shader_set_vec3(&myShader, "uLDir", (float *)light_dir);
+        shader_set_float(&myShader, "uTime", angle);
+
+        glBindVertexArray(VAO);
 
         for (int i = 0; i < 8; i++)
         {
-            mat4 model, view, proj, mvp;
+            mat4 model, mvp;
             glm_mat4_identity(model);
             glm_rotate(model, angle, (vec3){1.0f, 1.0f, 1.0f});
             glm_translate(model, spheres[i].pos);
-            glm_rotate(model, angle, (vec3){1.0f, 1.0f, 1.0f});
-            glm_lookat(
-                (vec3){0.0f, 0.0f, 2.5f},
-                (vec3){0.0f, 0.0f, 0.0f},
-                (vec3){0.0f, 1.0f, 0.0f},
-                view);
+            glm_rotate(model, angle, (vec3){2.0f, 2.0f, 2.0f});
 
-            glm_perspective(
-                glm_rad(45.0f),
-                800.0f / 800.0f,
-                0.1f, 100.0f,
-                proj);
+            glm_mat4_mul(view_proj, model, mvp);
 
-            mat4 temp;
-            glm_mat4_mul(proj, view, temp);
-            glm_mat4_mul(temp, model, mvp);
-
-            vec3 light_dir = {-1.0f, -1.0f, 1.0f};
-            glm_vec3_normalize(light_dir);
-            shader_use(&myShader);
             shader_set_mat4(&myShader, "uMVP", (float *)mvp);
             shader_set_mat4(&myShader, "uModel", (float *)model);
-            shader_set_vec3(&myShader, "uLDir", (float *)light_dir);
-            shader_set_float(&myShader, "uTime", (float)glfwGetTime());
 
-            glBindVertexArray(VAO);
             glDrawElements(GL_TRIANGLES, i_num, GL_UNSIGNED_INT, 0);
         }
-        glBindVertexArray(VAO);
-        glDrawElements(GL_TRIANGLES, i_num, GL_UNSIGNED_INT, 0);
 
         glfwSwapBuffers(window);
     }
