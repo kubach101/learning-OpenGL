@@ -11,6 +11,9 @@ cmake_install.cmake
 Makefile
 *.ninja
 
+#personal
+revision/
+
 # executables
 *.exe
 
